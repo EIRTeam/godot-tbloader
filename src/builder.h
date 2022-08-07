@@ -43,7 +43,6 @@ public:
 
 protected:
 	Vector3 lm_transform(const vec3& v);
-	
 	void add_collider_from_mesh(Area3D* area, Ref<ArrayMesh>& mesh);
 	void add_surface_to_mesh(LMSurface& surf, Ref<ArrayMesh> mesh);
 
@@ -52,4 +51,5 @@ protected:
   static String material_path(const char* name);
 	static Ref<Texture2D> texture_from_name(const char* name);
 	static Ref<Material> material_from_name(const char* name);
+
 };

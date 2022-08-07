@@ -2,6 +2,9 @@
 
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/standard_material3d.hpp>
+#include <godot_cpp/classes/static_body3d.hpp>
+#include <godot_cpp/classes/collision_shape3d.hpp>
+#include <godot_cpp/classes/shape3d.hpp>
 
 #include <tb_loader.h>
 
@@ -67,6 +70,7 @@ void MeshBuilder::build_entity_mesh(int idx, LMEntity &ent, Node3D *parent, bool
 
 	// Create mesh
 	Ref<ArrayMesh> mesh = memnew(ArrayMesh());
+	Ref<ArrayMesh> collision_mesh = memnew(ArrayMesh());
 
 	// Give mesh to mesh instance
 	mesh_instance->set_mesh(mesh);
@@ -75,6 +79,12 @@ void MeshBuilder::build_entity_mesh(int idx, LMEntity &ent, Node3D *parent, bool
 	{
 		auto &tex = m_map->textures[i];
 		char* name = tex.name;
+
+		// Skip textures using the skip texture name
+		if (strcmp(m_loader->get_skip_texture_name().utf8().get_data(), name) == 0) {
+			continue;
+		}
+
 
 		// Attempt to load material
 		material = material_from_name(name);
@@ -92,7 +102,7 @@ void MeshBuilder::build_entity_mesh(int idx, LMEntity &ent, Node3D *parent, bool
 				new_material->set_texture(BaseMaterial3D::TEXTURE_ALBEDO, res_texture);
 				if (m_loader->m_filter_nearest)
 				{
-					new_material->set_texture_filter(BaseMaterial3D::TEXTURE_FILTER_NEAREST);
+					new_material->set_texture_filter(BaseMaterial3D::TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC);
 				}
 				material = new_material;
 			}
@@ -110,6 +120,8 @@ void MeshBuilder::build_entity_mesh(int idx, LMEntity &ent, Node3D *parent, bool
 			return;
 		}
 
+		bool is_clip = strcmp(m_loader->get_clip_texture_name().utf8().get_data(), name) == 0;
+
 		for (int i = 0; i < surfs.surface_count; i++)
 		{
 			auto &surf = surfs.surfaces[i];
@@ -118,13 +130,17 @@ void MeshBuilder::build_entity_mesh(int idx, LMEntity &ent, Node3D *parent, bool
 				continue;
 			}
 
-			// Create mesh
-			add_surface_to_mesh(surf, mesh);
+			add_surface_to_mesh(surf, collision_mesh);
 
-			// Give mesh material
-			if (material != nullptr)
-			{
-				mesh->surface_set_material(mesh->get_surface_count()-1, material);
+			if (!is_clip) {
+				// Create mesh
+				add_surface_to_mesh(surf, mesh);
+
+				// Give mesh material
+				if (material != nullptr)
+				{
+					mesh->surface_set_material(mesh->get_surface_count()-1, material);
+				}
 			}
 		}
 	}
@@ -139,7 +155,19 @@ void MeshBuilder::build_entity_mesh(int idx, LMEntity &ent, Node3D *parent, bool
 	// Create collisions if needed
 	if (m_loader->m_collision && build_collision)
 	{
-		// TODO: Experiment with the other colliders
-		mesh_instance->create_trimesh_collision();
+		if (collision_mesh->get_surface_count() > 0) {
+			StaticBody3D* static_body = memnew(StaticBody3D());
+			
+			String instance_col_name = instance_name + "_col";
+			static_body->set_name(instance_col_name);
+			mesh_instance->add_child(static_body);
+			static_body->set_owner(m_loader->get_owner());
+
+			CollisionShape3D* collision_shape = memnew(CollisionShape3D());
+			// TODO: Experiment with the other colliders
+			collision_shape->set_shape(collision_mesh->create_trimesh_shape());
+			static_body->add_child(collision_shape, true);
+			collision_shape->set_owner(m_loader->get_owner());
+		}
 	}
 }
