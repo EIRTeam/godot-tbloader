@@ -110,7 +110,7 @@ bool LMMapParser::load_from_path(const char *map_file) {
 	return true;
 }
 
-void LMMapParser::load_from_godot_file(godot::Ref<godot::FileAccess> f) {
+void LMMapParser::load_from_godot_file(Ref<FileAccess> f) {
 	map_data->map_data_reset();
 
 	reset_current_face();

@@ -1,14 +1,14 @@
-#include <builder.h>
+#include "builder.h"
 
-#include <godot_cpp/classes/resource_loader.hpp>
-#include <godot_cpp/classes/omni_light3d.hpp>
-#include <godot_cpp/classes/area3d.hpp>
-#include <godot_cpp/classes/collision_shape3d.hpp>
-#include <godot_cpp/classes/shape3d.hpp>
-#include <godot_cpp/classes/packed_scene.hpp>
-#include <godot_cpp/classes/standard_material3d.hpp>
-#include <godot_cpp/classes/convex_polygon_shape3d.hpp>
-#include <godot_cpp/classes/concave_polygon_shape3d.hpp>
+#include "core/io/resource_loader.h"
+#include "scene/3d/light_3d.h"
+#include "scene/3d/area_3d.h"
+#include "scene/3d/collision_shape_3d.h"
+#include "scene/resources/shape_3d.h"
+#include "scene/resources/packed_scene.h"
+#include "scene/resources/material.h"
+#include "scene/resources/convex_polygon_shape_3d.h"
+#include "scene/resources/concave_polygon_shape_3d.h"
 
 #include <tb_loader.h>
 
@@ -24,10 +24,12 @@ Builder::~Builder()
 
 void Builder::load_map(const String& path)
 {
-	UtilityFunctions::print("Building map ", path);
+	print_line("Building map ", path);
 
-	if (!FileAccess::file_exists(path)) {
-		UtilityFunctions::printerr("Map file does not exist!");
+	Ref<FileAccess> f1 = FileAccess::create(FileAccess::ACCESS_RESOURCES);
+
+	if (!f1->file_exists(path)) {
+		print_error("Map file does not exist!");
 		return;
 	}
 
@@ -142,8 +144,6 @@ void Builder::build_entity_custom(int idx, LMEntity& ent, LMEntityGeometry& geo,
 	// "info_player_start" => "info/player/start.tscn", "info/player_start.tscn", "info_player_start.tscn"
 	// "thing" => "thing.tscn"
 
-	auto resource_loader = ResourceLoader::get_singleton();
-
 	auto arr = classname.split("_");
 	for (int i = 0; i < arr.size(); i++) {
 		String path = m_loader->m_entity_path + "/";
@@ -159,10 +159,10 @@ void Builder::build_entity_custom(int idx, LMEntity& ent, LMEntityGeometry& geo,
 		}
 		path = path + ".tscn";
 
-		if (resource_loader->exists(path, "PackedScene")) {
-			Ref<PackedScene> scene = resource_loader->load(path);
+		if (ResourceLoader::exists(path, "PackedScene")) {
+			Ref<PackedScene> scene = ResourceLoader::load(path);
 			if (scene == nullptr) {
-				UtilityFunctions::printerr("Resource at path '", path, "' could not be loaded as a PackedScene by the resource loader!");
+				print_error("Resource at path '" + path + "' could not be loaded as a PackedScene by the resource loader!");
 				return;
 			}
 
@@ -222,7 +222,7 @@ void Builder::build_entity_custom(int idx, LMEntity& ent, LMEntityGeometry& geo,
 		}
 	}
 
-	UtilityFunctions::printerr("Path to entity resource could not be resolved: ", classname);
+	print_error("Path to entity resource could not be resolved: " + classname);
 }
 
 void Builder::build_entity_light(int idx, LMEntity& ent)
@@ -362,7 +362,7 @@ void Builder::set_entity_brush_common(int idx, Node3D* node, LMEntity& ent)
 
 	// Stop if we don't need to do anything
 	if (!need_visual && need_collider == ColliderType::None) {
-		UtilityFunctions::printerr("Brush entity class has no need for visual nor collision: ", node->get_class());
+		print_error("Brush entity class has no need for visual nor collision: " + node->get_class());
 		return;
 	}
 
@@ -384,7 +384,7 @@ void Builder::add_collider_from_mesh(Node3D* node, Ref<ArrayMesh>& mesh, Collide
 	}
 
 	if (mesh_shape == nullptr) {
-		UtilityFunctions::printerr("Unable to create collider shape from mesh!");
+		print_error("Unable to create collider shape from mesh!");
 		return;
 	}
 
@@ -435,7 +435,7 @@ void Builder::add_surface_to_mesh(Ref<ArrayMesh>& mesh, LMSurface& surf)
 MeshInstance3D* Builder::build_entity_mesh(int idx, LMEntity& ent, Node3D* parent, ColliderType coltype, ColliderShape colshape)
 {
 	// Create instance name based on entity idx
-	String instance_name = String("entity_{0}_geometry").format(Array::make(idx));
+	String instance_name = vformat("entity_%d_geometry", idx);
 
 	auto mesh_instance = memnew(MeshInstance3D());
 
@@ -550,7 +550,6 @@ void Builder::load_and_cache_map_textures()
 	constexpr const char* supported_extensions[num_extensions] = { "png", "dds", "tga", "jpg", "jpeg", "bmp", "webp", "exr", "hdr" };
 
 	// Attempt to load and cache textures used by the map
-	auto resource_loader = ResourceLoader::get_singleton();
 	String tex_path;
 
 	for (int tex_i = 0; tex_i < m_map->texture_count; tex_i++) {
@@ -560,17 +559,18 @@ void Builder::load_and_cache_map_textures()
 		// Find the texture with a supported extension - stop when it can be loaded
 		for (int ext_i = 0; ext_i < num_extensions; ext_i++) {
 			tex_path = texture_path(tex.name, supported_extensions[ext_i]);
-			if (resource_loader->exists(tex_path, "CompressedTexture2D")) {
-				m_loaded_map_textures[tex.name] = resource_loader->load(tex_path);
+			if (ResourceLoader::exists(tex_path, "CompressedTexture2D")) {
+				m_loaded_map_textures[tex.name] = ResourceLoader::load(tex_path);
 				has_loaded_texture = true;
 				break;
 			}
 		}
 
 		if (!has_loaded_texture && strcmp(tex.name, "__TB_empty") != 0) {
-			UtilityFunctions::printerr("Texture cannot be found or is unsupported! - ", m_loader->m_texture_path, tex.name);
+			print_error("Texture cannot be found or is unsupported! - " + m_loader->m_texture_path + tex.name);
+			
 			if (m_loader->m_texture_path.is_empty()) {
-				UtilityFunctions::printerr("texture_path is empty");
+				print_error("texture_path is empty");
 			}
 		}
 	}
@@ -586,9 +586,11 @@ String Builder::material_path(const char* name)
 	auto root_path = m_loader->m_texture_path + "/" + name;
 	String material_path;
 
-	if (FileAccess::file_exists(root_path + ".material")) {
+	Ref<FileAccess> f = FileAccess::create(FileAccess::ACCESS_RESOURCES);
+
+	if (f->file_exists(root_path + ".material")) {
 		material_path = root_path + ".material";
-	} else if (FileAccess::file_exists(root_path + ".tres")) {
+	} else if (f->file_exists(root_path + ".tres")) {
 		material_path = root_path + ".tres";
 	}
 
@@ -607,10 +609,8 @@ Ref<Material> Builder::material_from_name(const char* name)
 {
 	auto path = material_path(name);
 
-	auto resource_loader = ResourceLoader::get_singleton();
-	if (!resource_loader->exists(path)) {
+	if (!ResourceLoader::exists(path)) {
 		return nullptr;
 	}
-
-	return resource_loader->load(path);
+	return ResourceLoader::load(path);
 }

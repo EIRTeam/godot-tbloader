@@ -1,14 +1,7 @@
 #pragma once
 
-#include <gdextension_interface.h>
-
-#include <godot_cpp/godot.hpp>
-#include <godot_cpp/core/defs.hpp>
-
-#include <godot_cpp/classes/node3d.hpp>
-#include <godot_cpp/classes/control.hpp>
-
-using namespace godot;
+#include "scene/3d/node_3d.h"
+#include "scene/gui/control.h"
 
 class TBLoader : public Node3D
 {

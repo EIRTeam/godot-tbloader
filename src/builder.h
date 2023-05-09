@@ -1,22 +1,17 @@
 #pragma once
 
-#include <godot_cpp/godot.hpp>
-#include <godot_cpp/variant/utility_functions.hpp>
-
-#include <godot_cpp/classes/file_access.hpp>
-#include <godot_cpp/classes/texture2d.hpp>
-#include <godot_cpp/classes/material.hpp>
-#include <godot_cpp/classes/array_mesh.hpp>
-#include <godot_cpp/classes/node3d.hpp>
-#include <godot_cpp/classes/area3d.hpp>
-#include <godot_cpp/classes/mesh_instance3d.hpp>
-#include <godot_cpp/classes/static_body3d.hpp>
+#include "core/io/file_access.h"
+#include "scene/resources/texture.h"
+#include "scene/resources/material.h"
+#include "scene/resources/mesh.h"
+#include "scene/3d/node_3d.h"
+#include "scene/3d/area_3d.h"
+#include "scene/3d/mesh_instance_3d.h"
+#include "scene/3d/physics_body_3d.h"
 
 #include <map_parser.h>
 #include <geo_generator.h>
 #include <surface_gatherer.h>
-
-using namespace godot;
 
 class TBLoader;
 

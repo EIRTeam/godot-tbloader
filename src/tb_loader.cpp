@@ -1,9 +1,8 @@
-#include <tb_loader.h>
+#include "tb_loader.h"
 
-#include <godot_cpp/core/class_db.hpp>
-#include <godot_cpp/variant/utility_functions.hpp>
+#include "core/object/class_db.h"
 
-#include <builder.h>
+#include "builder.h"
 
 void TBLoader::_bind_methods()
 {
@@ -182,7 +181,7 @@ String TBLoader::get_entity_path()
 void TBLoader::set_texture_path(const String& path)
 {
 	if (path.is_empty()) {
-		UtilityFunctions::push_warning("WARNING: texture_path should not be empty");
+		WARN_PRINT_ED("WARNING: texture_path should not be empty");
 	}
 	m_texture_path = path;
 }
