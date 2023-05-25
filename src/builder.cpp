@@ -70,46 +70,56 @@ void Builder::build_map()
 
 void Builder::build_worldspawn(int idx, LMEntity& ent)
 {
-	// Create node for this entity
-	auto container_node = memnew(Node3D());
-	m_loader->add_child(container_node);
-	container_node->set_owner(m_loader->get_owner());
 
 	// Decide generated collision type
 	ColliderType collider = ColliderType::None;
 	ColliderShape collider_shape = ColliderShape::Concave;
-	if (m_loader->m_collision) {
+	
+	bool is_illusionary = strcmp(ent.get_property("classname"), "func_illusionary") == 0;
+	
+	if (m_loader->m_collision && !is_illusionary) {
 		collider = ColliderType::Static;
 		collider_shape = ColliderShape::Concave;
 	}
 
-	// Create mesh instance for worldspawn
-	build_entity_mesh(idx, ent, container_node, collider, collider_shape);
+	if (!is_illusionary) {
+		// Normal geometry
 
-	// Delete container if we added nothing to it
-	if (container_node->get_child_count() == 0) {
-		container_node->queue_free();
-		return;
-	}
+		// Create node for this entity
+		auto container_node = memnew(Node3D());
+		m_loader->add_child(container_node);
+		container_node->set_owner(m_loader->get_owner());
+		
+		build_entity_mesh(idx, ent, container_node, collider, collider_shape);
+		
+		// Delete container if we added nothing to it
+		if (container_node->get_child_count() == 0) {
+			container_node->queue_free();
+			return;
+		}
+		// Find name for entity
+		const char* tb_name;
+		if (!strcmp(ent.get_property("classname"), "worldspawn")) {
+			tb_name = "Default Layer";
+		} else {
+			tb_name = ent.get_property("_tb_name", nullptr);
+		}
 
-	// Find name for entity
-	const char* tb_name;
-	if (!strcmp(ent.get_property("classname"), "worldspawn")) {
-		tb_name = "Default Layer";
+		// Add container to loader
+		if (tb_name != nullptr) {
+			container_node->set_name(tb_name);
+		}
+		container_node->set_position(lm_transform(ent.center));
 	} else {
-		tb_name = ent.get_property("_tb_name", nullptr);
+		// illusionary geometry
+		MeshInstance3D *mi = build_entity_mesh(idx, ent, m_loader, collider, collider_shape);
+		mi->set_position(lm_transform(ent.center));
 	}
-
-	// Add container to loader
-	if (tb_name != nullptr) {
-		container_node->set_name(tb_name);
-	}
-	container_node->set_position(lm_transform(ent.center));
 }
 
 void Builder::build_entity(int idx, LMEntity& ent, const String& classname)
 {
-	if (classname == "worldspawn" || classname == "func_group") {
+	if (classname == "worldspawn" || classname == "func_group" || classname == "func_illusionary") {
 		// Skip worldspawn if the layer is hidden and the "skip hidden layers" option is checked
 		if (m_loader->m_skip_hidden_layers) {
 			bool is_visible = (ent.get_property_int("_tb_layer_hidden", 0) == 0);
@@ -475,6 +485,7 @@ MeshInstance3D* Builder::build_entity_mesh(int idx, LMEntity& ent, Node3D* paren
 			if (res_texture != nullptr) {
 				Ref<StandardMaterial3D> new_material = memnew(StandardMaterial3D());
 				new_material->set_texture(BaseMaterial3D::TEXTURE_ALBEDO, res_texture);
+				new_material->set_texture_filter(BaseMaterial3D::TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC);
 				if (m_loader->m_filter_nearest) {
 					new_material->set_texture_filter(BaseMaterial3D::TEXTURE_FILTER_NEAREST);
 				}
