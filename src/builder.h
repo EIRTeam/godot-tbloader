@@ -8,6 +8,7 @@
 #include "scene/3d/area_3d.h"
 #include "scene/3d/mesh_instance_3d.h"
 #include "scene/3d/physics_body_3d.h"
+#include "tb_loader_singleton.h"
 
 #include <map_parser.h>
 #include <geo_generator.h>
@@ -50,8 +51,9 @@ public:
 	void build_worldspawn(int idx, LMEntity& ent);
 	void build_brush(int idx, Node3D* node, LMEntity& ent);
 
-	void build_entity(int idx, LMEntity& ent, const String& classname);
+	void build_entity(int idx, LMEntity& ent, const String& classname, Node3D **p_output_node);
 	void build_entity_custom(int idx, LMEntity& ent, LMEntityGeometry& geo, const String& classname);
+	bool build_entity_custom_native(int p_idx, LMEntity &p_ent, LMEntityGeometry &p_geo, const String &p_class_name, Node3D **p_output_node);
 	void build_entity_light(int idx, LMEntity& ent);
 	void build_entity_area(int idx, LMEntity& ent);
 

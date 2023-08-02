@@ -11,6 +11,7 @@
 #include "scene/resources/concave_polygon_shape_3d.h"
 
 #include <tb_loader.h>
+#include "tb_loader_singleton.h"
 
 Builder::Builder(TBLoader* loader)
 {
@@ -60,11 +61,40 @@ void Builder::load_map(const String& path)
 	geogen.run();
 }
 
-void Builder::build_map()
-{
+void Builder::build_map() {
+	HashMap<StringName, TBLoaderEntity::EntityCompileInfo> built_entities;
 	for (int i = 0; i < m_map->entity_count; i++) {
 		auto& ent = m_map->entities[i];
-		build_entity(i, ent, ent.get_property("classname"));
+		Node3D *output_node = nullptr;
+		build_entity(i, ent, ent.get_property("classname"), &output_node);
+		if (!output_node) {
+			continue;
+		}
+		TBLoaderEntity *tb_entity = Object::cast_to<TBLoaderEntity>(output_node);
+		if (tb_entity) {
+			TBLoaderEntity::EntityCompileInfo compile_info;
+			if (ent.has_property("target")) {
+				compile_info.children.push_back(ent.get_property("target"));
+			}
+			compile_info.node = output_node;
+			compile_info.entity = tb_entity;
+			built_entities.insert(output_node->get_name(), compile_info);
+		}
+	}
+
+	for (KeyValue<StringName, TBLoaderEntity::EntityCompileInfo> &kv : built_entities) {
+		TBLoaderEntity::EntityCompileInfo *compile_info = &kv.value;
+		for (StringName child : compile_info->children) {
+			TBLoaderEntity::EntityCompileInfo *target = built_entities.getptr(child);
+			if (!target) {
+				continue;
+			}
+			target->parents.push_back(kv.key);
+		}
+	}
+
+	for (KeyValue<StringName, TBLoaderEntity::EntityCompileInfo> &kv : built_entities) {
+		kv.value.entity->_editor_build(kv.value, built_entities);
 	}
 }
 
@@ -117,8 +147,9 @@ void Builder::build_worldspawn(int idx, LMEntity& ent)
 	}
 }
 
-void Builder::build_entity(int idx, LMEntity& ent, const String& classname)
+void Builder::build_entity(int idx, LMEntity& ent, const String& classname, Node3D **p_output_node)
 {
+	*p_output_node = nullptr;
 	if (classname == "worldspawn" || classname == "func_group" || classname == "func_illusionary") {
 		// Skip worldspawn if the layer is hidden and the "skip hidden layers" option is checked
 		if (m_loader->m_skip_hidden_layers) {
@@ -145,6 +176,12 @@ void Builder::build_entity(int idx, LMEntity& ent, const String& classname)
 		//TODO: More common entities
 	}
 
+	// Try to build using C++ registered entities
+	if (build_entity_custom_native(idx, ent, m_map->entity_geo[idx], classname, p_output_node)) {
+		return;
+	}
+
+	// That didn't work, so let's fall back to NativeScript defined res://entities
 	build_entity_custom(idx, ent, m_map->entity_geo[idx], classname);
 }
 
@@ -233,6 +270,66 @@ void Builder::build_entity_custom(int idx, LMEntity& ent, LMEntityGeometry& geo,
 	}
 
 	print_error("Path to entity resource could not be resolved: " + classname);
+}
+
+bool Builder::build_entity_custom_native(int p_idx, LMEntity &p_ent, LMEntityGeometry &p_geo, const String &p_class_name, Node3D **p_output_node) {
+	*p_output_node = nullptr;
+	Node3D *entity = TBLoaderSingleton::create_entity(p_class_name);
+	if (!entity) {
+		return false;
+	}
+
+	m_loader->add_child(entity);
+	entity->set_owner(m_loader->get_owner());
+	*p_output_node = entity;
+
+	set_entity_node_common(entity, p_ent);
+	if (p_ent.brush_count > 0) {
+		set_entity_brush_common(p_idx, entity, p_ent);
+	}
+
+	for (int j = 0; j < p_ent.property_count; j++) {
+		auto& prop = p_ent.properties[j];
+
+		auto var = entity->get(prop.key);
+		switch (var.get_type()) {
+			case Variant::BOOL: entity->set(prop.key, atoi(prop.value) == 1); break;
+			case Variant::INT: entity->set(prop.key, (int64_t)atoll(prop.value)); break;
+			case Variant::FLOAT: entity->set(prop.key, atof(prop.value)); break; //TODO: Locale?
+			case Variant::STRING: entity->set(prop.key, prop.value); break;
+
+			case Variant::STRING_NAME: entity->set(prop.key, StringName(prop.value));
+			case Variant::NODE_PATH: entity->set(prop.key, NodePath(prop.value)); //TODO: More TrenchBroom focused node path conversion?
+
+			case Variant::VECTOR2: {
+				vec2 v = vec2_parse(prop.value);
+				entity->set(prop.key, Vector2(v.x, v.y));
+				break;
+			}
+			case Variant::VECTOR2I: {
+				vec2 v = vec2_parse(prop.value);
+				entity->set(prop.key, Vector2i((int)v.x, (int)v.y));
+				break;
+			}
+			case Variant::VECTOR3: {
+				vec3 v = vec3_parse(prop.value);
+				entity->set(prop.key, Vector3(v.x, v.y, v.z));
+				break;
+			}
+			case Variant::VECTOR3I: {
+				vec3 v = vec3_parse(prop.value);
+				entity->set(prop.key, Vector3i((int)v.x, (int)v.y, (int)v.z));
+				break;
+			}
+
+			case Variant::COLOR: {
+				vec3 v = vec3_parse(prop.value);
+				entity->set(prop.key, Color(v.x / 255.0f, v.y / 255.0f, v.z / 255.0f));
+				break;
+			}
+		}
+	}
+	return true;
 }
 
 void Builder::build_entity_light(int idx, LMEntity& ent)
