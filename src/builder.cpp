@@ -63,10 +63,11 @@ void Builder::load_map(const String& path)
 
 void Builder::build_map() {
 	HashMap<StringName, TBLoaderEntity::EntityCompileInfo> built_entities;
+	TBLoaderBuildInfo build_info;
 	for (int i = 0; i < m_map->entity_count; i++) {
 		auto& ent = m_map->entities[i];
 		Node3D *output_node = nullptr;
-		build_entity(i, ent, ent.get_property("classname"), &output_node);
+		build_entity(i, ent, ent.get_property("classname"), &output_node, &build_info);
 		if (!output_node) {
 			continue;
 		}
@@ -93,12 +94,16 @@ void Builder::build_map() {
 		}
 	}
 
+	for (Ref<TBLoaderHook> hook : TBLoaderSingleton::compile_hooks) {
+		hook->post_compile_hook(m_loader, &build_info);
+	}
+
 	for (KeyValue<StringName, TBLoaderEntity::EntityCompileInfo> &kv : built_entities) {
 		kv.value.entity->_editor_build(kv.value, built_entities);
 	}
 }
 
-void Builder::build_worldspawn(int idx, LMEntity& ent)
+void Builder::build_worldspawn(int idx, LMEntity& ent, TBLoaderEntityBuildInfo *p_build_info)
 {
 
 	// Decide generated collision type
@@ -120,7 +125,7 @@ void Builder::build_worldspawn(int idx, LMEntity& ent)
 		m_loader->add_child(container_node);
 		container_node->set_owner(m_loader->get_owner());
 		
-		build_entity_mesh(idx, ent, container_node, collider, collider_shape);
+		build_entity_mesh(idx, ent, container_node, collider, collider_shape, p_build_info);
 		
 		// Delete container if we added nothing to it
 		if (container_node->get_child_count() == 0) {
@@ -147,9 +152,11 @@ void Builder::build_worldspawn(int idx, LMEntity& ent)
 	}
 }
 
-void Builder::build_entity(int idx, LMEntity& ent, const String& classname, Node3D **p_output_node)
+void Builder::build_entity(int idx, LMEntity& ent, const String& classname, Node3D **p_output_node, TBLoaderBuildInfo *p_build_info)
 {
 	*p_output_node = nullptr;
+	TBLoaderEntityBuildInfo build_info;
+	build_info.class_name = classname;
 	if (classname == "worldspawn" || classname == "func_group" || classname == "func_illusionary") {
 		// Skip worldspawn if the layer is hidden and the "skip hidden layers" option is checked
 		if (m_loader->m_skip_hidden_layers) {
@@ -158,7 +165,11 @@ void Builder::build_entity(int idx, LMEntity& ent, const String& classname, Node
 				return;
 			}
 		}
-		build_worldspawn(idx, ent);
+		build_worldspawn(idx, ent, &build_info);
+		p_build_info->entities.push_back(build_info);
+		if (build_info.collision_shape) {
+			p_build_info->worldspawn_collision_shapes.push_back(build_info.collision_shape);
+		}
 		return;
 	}
 
@@ -175,6 +186,8 @@ void Builder::build_entity(int idx, LMEntity& ent, const String& classname, Node
 
 		//TODO: More common entities
 	}
+
+
 
 	// Try to build using C++ registered entities
 	if (build_entity_custom_native(idx, ent, m_map->entity_geo[idx], classname, p_output_node)) {
@@ -482,12 +495,16 @@ Vector3 Builder::lm_transform(const vec3& v)
 	return Vector3(sv.y, sv.z, sv.x);
 }
 
-void Builder::add_collider_from_mesh(Node3D* node, Ref<ArrayMesh>& mesh, ColliderShape colshape)
+void Builder::add_collider_from_mesh(Node3D* node, Ref<ArrayMesh>& mesh, ColliderShape colshape, TBLoaderEntityBuildInfo *p_build_info)
 {
 	Ref<Shape3D> mesh_shape;
 	switch (colshape) {
-	case ColliderShape::Convex: mesh_shape = mesh->create_convex_shape(); break;
-	case ColliderShape::Concave: mesh_shape = mesh->create_trimesh_shape(); break;
+		case ColliderShape::Convex: mesh_shape = mesh->create_convex_shape(); break;
+		case ColliderShape::Concave: {
+			Ref<ConcavePolygonShape3D> conc = mesh->create_trimesh_shape();
+			conc->set_backface_collision_enabled(true);
+			mesh_shape = conc;
+		} break;
 	}
 
 	if (mesh_shape == nullptr) {
@@ -499,6 +516,9 @@ void Builder::add_collider_from_mesh(Node3D* node, Ref<ArrayMesh>& mesh, Collide
 	collision_shape->set_shape(mesh_shape);
 	node->add_child(collision_shape, true);
 	collision_shape->set_owner(m_loader->get_owner());
+	if (p_build_info) {
+		p_build_info->collision_shape = collision_shape;
+	}
 }
 
 void Builder::add_surface_to_mesh(Ref<ArrayMesh>& mesh, LMSurface& surf)
@@ -539,7 +559,7 @@ void Builder::add_surface_to_mesh(Ref<ArrayMesh>& mesh, LMSurface& surf)
 	mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays);
 }
 
-MeshInstance3D* Builder::build_entity_mesh(int idx, LMEntity& ent, Node3D* parent, ColliderType coltype, ColliderShape colshape)
+MeshInstance3D* Builder::build_entity_mesh(int idx, LMEntity& ent, Node3D* parent, ColliderType coltype, ColliderShape colshape, TBLoaderEntityBuildInfo *p_build_info)
 {
 	// Create instance name based on entity idx
 	String instance_name = vformat("entity_%d_geometry", idx);
@@ -634,7 +654,7 @@ MeshInstance3D* Builder::build_entity_mesh(int idx, LMEntity& ent, Node3D* paren
 	// Create collisions if needed
 	switch (coltype) {
 	case ColliderType::Mesh:
-		add_collider_from_mesh(parent, collision_mesh, colshape);
+		add_collider_from_mesh(parent, collision_mesh, colshape, p_build_info);
 		break;
 
 	case ColliderType::Static:
@@ -642,7 +662,7 @@ MeshInstance3D* Builder::build_entity_mesh(int idx, LMEntity& ent, Node3D* paren
 		static_body->set_name(String(mesh_instance->get_name()) + "_col");
 		parent->add_child(static_body, true);
 		static_body->set_owner(m_loader->get_owner());
-		add_collider_from_mesh(static_body, collision_mesh, colshape);
+		add_collider_from_mesh(static_body, collision_mesh, colshape, p_build_info);
 		break;
 	}
 
@@ -721,4 +741,8 @@ Ref<Material> Builder::material_from_name(const char* name)
 		return nullptr;
 	}
 	return ResourceLoader::load(path);
+}
+
+void Builder::add_compile_hook(Ref<TBLoaderHook> p_compile_hook) {
+	compile_hooks.push_back(p_compile_hook);
 }
