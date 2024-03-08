@@ -2,7 +2,7 @@
 #define TB_LOADER_SINGLETON_H
 
 #include "core/object/ref_counted.h"
-#include "scene/3d/collision_shape_3d.h"
+#include "scene/3d/physics/collision_shape_3d.h"
 #include "scene/3d/node_3d.h"
 #include "tb_loader.h"
 

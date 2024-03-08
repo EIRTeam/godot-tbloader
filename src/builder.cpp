@@ -2,13 +2,14 @@
 
 #include "core/io/resource_loader.h"
 #include "scene/3d/light_3d.h"
-#include "scene/3d/area_3d.h"
-#include "scene/3d/collision_shape_3d.h"
-#include "scene/resources/shape_3d.h"
+#include "scene/3d/physics/area_3d.h"
+#include "scene/3d/physics/static_body_3d.h"
+#include "scene/3d/physics/collision_shape_3d.h"
+#include "scene/resources/3d/shape_3d.h"
 #include "scene/resources/packed_scene.h"
 #include "scene/resources/material.h"
-#include "scene/resources/convex_polygon_shape_3d.h"
-#include "scene/resources/concave_polygon_shape_3d.h"
+#include "scene/resources/3d/concave_polygon_shape_3d.h"
+#include "scene/resources/3d/convex_polygon_shape_3d.h"
 
 #include <tb_loader.h>
 #include "tb_loader_singleton.h"

@@ -1,14 +1,14 @@
 #pragma once
 
 #include "core/io/file_access.h"
-#include "scene/3d/collision_shape_3d.h"
+#include "scene/3d/physics/collision_shape_3d.h"
 #include "scene/resources/texture.h"
 #include "scene/resources/material.h"
 #include "scene/resources/mesh.h"
 #include "scene/3d/node_3d.h"
-#include "scene/3d/area_3d.h"
+#include "scene/3d/physics/area_3d.h"
 #include "scene/3d/mesh_instance_3d.h"
-#include "scene/3d/physics_body_3d.h"
+#include "scene/3d/physics/physics_body_3d.h"
 #include "tb_loader_singleton.h"
 
 #include <map_parser.h>
