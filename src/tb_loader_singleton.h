@@ -25,6 +25,7 @@ public:
         TBLoaderEntity* entity;
     };
     virtual void _editor_build(const EntityCompileInfo &p_info, const HashMap<StringName, EntityCompileInfo> &p_entities) {};
+    virtual ~TBLoaderEntity() = default;
 };
 
 class TBLoaderHook : public Resource {

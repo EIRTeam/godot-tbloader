@@ -47,7 +47,6 @@ double vec3_sqlen(const vec3& v) {
 }
 
 double vec3_length(const vec3& v) {
-	double sqlen = vec3_sqlen(v);
 	return (double)sqrt(vec3_sqlen(v));
 }
 
@@ -94,7 +93,7 @@ vec3 vec3_div_double(const vec3& lhs, const double rhs) {
 };
 
 vec3 vec3_parse(const char* str) {
-	vec3 ret = { 0 };
+	vec3 ret = vec3();
 
 	ret.x = atof(str);
 	const char* token = strchr(str, ' ');
@@ -111,7 +110,7 @@ vec3 vec3_parse(const char* str) {
 
 vec2 vec2_parse(const char* str)
 {
-	vec2 ret = { 0 };
+	vec2 ret = vec2();
 
 	ret.x = atof(str);
 	const char* token = strchr(str, ' ');

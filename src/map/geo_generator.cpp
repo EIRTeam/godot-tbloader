@@ -28,9 +28,6 @@ int sort_vertices_by_winding(const void *lhs_in, const void *rhs_in) {
 	const vec3 *lhs = (const vec3 *)lhs_in;
 	const vec3 *rhs = (const vec3 *)rhs_in;
 
-	face *face_inst = &sort_map_data->entities[wind_entity_idx].brushes[wind_brush_idx].faces[wind_face_idx];
-	LMFaceGeometry *face_geo_inst = &sort_map_data->entity_geo[wind_entity_idx].brushes[wind_brush_idx].faces[wind_face_idx];
-
 	vec3 u = vec3_normalize(wind_face_basis);
 	vec3 v = vec3_normalize(vec3_cross(u, wind_face_normal));
 
@@ -134,7 +131,7 @@ void LMGeoGenerator::run() {
 				wind_face_idx = f;
 
 				wind_face_basis = vec3_sub(face_geo_inst->vertices[1].vertex, face_geo_inst->vertices[0].vertex);
-				wind_face_center = { 0 };
+				wind_face_center = vec3();
 				wind_face_normal = face_inst->plane_normal;
 
 				for (int v = 0; v < face_geo_inst->vertex_count; ++v) {
@@ -184,7 +181,7 @@ void LMGeoGenerator::generate_brush_vertices(int entity_idx, int brush_idx) {
 	for (int f0 = 0; f0 < brush_inst->face_count; ++f0) {
 		for (int f1 = 0; f1 < brush_inst->face_count; ++f1) {
 			for (int f2 = 0; f2 < brush_inst->face_count; ++f2) {
-				vec3 vertex = { 0 };
+				vec3 vertex = vec3();
 				if (intersect_faces(brush_inst->faces[f0], brush_inst->faces[f1], brush_inst->faces[f2], &vertex)) {
 					if (vertex_in_hull(brush_inst->faces, brush_inst->face_count, vertex)) {
 						face *face_inst = &map_data->entities[entity_idx].brushes[brush_idx].faces[f0];
@@ -312,12 +309,12 @@ bool LMGeoGenerator::vertex_in_hull(face *faces, int face_count, vec3 vertex) {
 	return true;
 }
 
-LMVertexUV LMGeoGenerator::get_standard_uv(vec3 vertex, const face *face, int texture_width, int texture_height) {
+LMVertexUV LMGeoGenerator::get_standard_uv(vec3 vertex, const face *p_face, int texture_width, int texture_height) {
 	LMVertexUV uv_out;
 
-	double du = fabs(vec3_dot(face->plane_normal, UP_VECTOR));
-	double dr = fabs(vec3_dot(face->plane_normal, RIGHT_VECTOR));
-	double df = fabs(vec3_dot(face->plane_normal, FORWARD_VECTOR));
+	double du = fabs(vec3_dot(p_face->plane_normal, UP_VECTOR));
+	double dr = fabs(vec3_dot(p_face->plane_normal, RIGHT_VECTOR));
+	double df = fabs(vec3_dot(p_face->plane_normal, FORWARD_VECTOR));
 
 	if (du >= dr && du >= df) {
 		uv_out = { vertex.x, -vertex.y };
@@ -328,7 +325,7 @@ LMVertexUV LMGeoGenerator::get_standard_uv(vec3 vertex, const face *face, int te
 	}
 
 	LMVertexUV rotated;
-	double angle = DEG_TO_RAD(face->uv_extra.rot);
+	double angle = DEG_TO_RAD(p_face->uv_extra.rot);
 	rotated.u = uv_out.u * cos(angle) - uv_out.v * sin(angle);
 	rotated.v = uv_out.u * sin(angle) + uv_out.v * cos(angle);
 	uv_out = rotated;
@@ -336,22 +333,22 @@ LMVertexUV LMGeoGenerator::get_standard_uv(vec3 vertex, const face *face, int te
 	uv_out.u /= texture_width;
 	uv_out.v /= texture_height;
 
-	uv_out.u /= face->uv_extra.scale_x;
-	uv_out.v /= face->uv_extra.scale_y;
+	uv_out.u /= p_face->uv_extra.scale_x;
+	uv_out.v /= p_face->uv_extra.scale_y;
 
-	uv_out.u += face->uv_standard.u / texture_width;
-	uv_out.v += face->uv_standard.v / texture_height;
+	uv_out.u += p_face->uv_standard.u / texture_width;
+	uv_out.v += p_face->uv_standard.v / texture_height;
 
 	return uv_out;
 }
 
-LMVertexUV LMGeoGenerator::get_valve_uv(vec3 vertex, const face *face, int texture_width, int texture_height) {
+LMVertexUV LMGeoGenerator::get_valve_uv(vec3 vertex, const face *p_face, int texture_width, int texture_height) {
 	LMVertexUV uv_out;
 
-	vec3 u_axis = face->uv_valve.u.axis;
-	double u_shift = face->uv_valve.u.offset;
-	vec3 v_axis = face->uv_valve.v.axis;
-	double v_shift = face->uv_valve.v.offset;
+	vec3 u_axis = p_face->uv_valve.u.axis;
+	double u_shift = p_face->uv_valve.u.offset;
+	vec3 v_axis = p_face->uv_valve.v.axis;
+	double v_shift = p_face->uv_valve.v.offset;
 
 	uv_out.u = vec3_dot(u_axis, vertex);
 	uv_out.v = vec3_dot(v_axis, vertex);
@@ -359,8 +356,8 @@ LMVertexUV LMGeoGenerator::get_valve_uv(vec3 vertex, const face *face, int textu
 	uv_out.u /= texture_width;
 	uv_out.v /= texture_height;
 
-	uv_out.u /= face->uv_extra.scale_x;
-	uv_out.v /= face->uv_extra.scale_y;
+	uv_out.u /= p_face->uv_extra.scale_x;
+	uv_out.v /= p_face->uv_extra.scale_y;
 
 	uv_out.u += u_shift / texture_width;
 	uv_out.v += v_shift / texture_height;
@@ -378,12 +375,12 @@ double sign(double v) {
 	return 0.0;
 }
 
-LMVertexTangent LMGeoGenerator::get_standard_tangent(const face *face) {
+LMVertexTangent LMGeoGenerator::get_standard_tangent(const face *p_face) {
 	LMVertexTangent tangent_out;
 
-	double du = vec3_dot(face->plane_normal, UP_VECTOR);
-	double dr = vec3_dot(face->plane_normal, RIGHT_VECTOR);
-	double df = vec3_dot(face->plane_normal, FORWARD_VECTOR);
+	double du = vec3_dot(p_face->plane_normal, UP_VECTOR);
+	double dr = vec3_dot(p_face->plane_normal, RIGHT_VECTOR);
+	double df = vec3_dot(p_face->plane_normal, FORWARD_VECTOR);
 
 	double dua = fabs(du);
 	double dra = fabs(dr);
@@ -403,8 +400,8 @@ LMVertexTangent LMGeoGenerator::get_standard_tangent(const face *face) {
 		v_sign = sign(df);
 	}
 
-	v_sign *= sign(face->uv_extra.scale_y);
-	u_axis = vec3_rotate(u_axis, face->plane_normal, -face->uv_extra.rot * v_sign);
+	v_sign *= sign(p_face->uv_extra.scale_y);
+	u_axis = vec3_rotate(u_axis, p_face->plane_normal, -p_face->uv_extra.rot * v_sign);
 
 	tangent_out.x = u_axis.x;
 	tangent_out.y = u_axis.y;
@@ -414,13 +411,13 @@ LMVertexTangent LMGeoGenerator::get_standard_tangent(const face *face) {
 	return tangent_out;
 }
 
-LMVertexTangent LMGeoGenerator::get_valve_tangent(const face *face) {
+LMVertexTangent LMGeoGenerator::get_valve_tangent(const face *p_face) {
 	LMVertexTangent tangent_out;
 
-	vec3 u_axis = vec3_normalize(face->uv_valve.u.axis);
-	vec3 v_axis = vec3_normalize(face->uv_valve.v.axis);
+	vec3 u_axis = vec3_normalize(p_face->uv_valve.u.axis);
+	vec3 v_axis = vec3_normalize(p_face->uv_valve.v.axis);
 
-	double v_sign = -sign(vec3_dot(vec3_cross(face->plane_normal, u_axis), v_axis));
+	double v_sign = -sign(vec3_dot(vec3_cross(p_face->plane_normal, u_axis), v_axis));
 
 	tangent_out.x = u_axis.x;
 	tangent_out.y = u_axis.y;

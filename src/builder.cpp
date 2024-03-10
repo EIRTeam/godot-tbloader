@@ -248,8 +248,8 @@ void Builder::build_entity_custom(int idx, LMEntity& ent, LMEntityGeometry& geo,
 					case Variant::FLOAT: instance->set(prop.key, atof(prop.value)); break; //TODO: Locale?
 					case Variant::STRING: instance->set(prop.key, prop.value); break;
 
-					case Variant::STRING_NAME: instance->set(prop.key, StringName(prop.value));
-					case Variant::NODE_PATH: instance->set(prop.key, NodePath(prop.value)); //TODO: More TrenchBroom focused node path conversion?
+					case Variant::STRING_NAME: instance->set(prop.key, StringName(prop.value)); break;
+					case Variant::NODE_PATH: instance->set(prop.key, NodePath(prop.value)); break;
 
 					case Variant::VECTOR2: {
 						vec2 v = vec2_parse(prop.value);
@@ -277,6 +277,9 @@ void Builder::build_entity_custom(int idx, LMEntity& ent, LMEntityGeometry& geo,
 						instance->set(prop.key, Color(v.x / 255.0f, v.y / 255.0f, v.z / 255.0f));
 						break;
 					}
+					default: {
+						ERR_FAIL_MSG(vformat("Couldn't parse entity property of type %s", Variant::get_type_name(var.get_type())));
+					} break;
 				}
 			}
 			return;
@@ -312,8 +315,8 @@ bool Builder::build_entity_custom_native(int p_idx, LMEntity &p_ent, LMEntityGeo
 			case Variant::FLOAT: entity->set(prop.key, atof(prop.value)); break; //TODO: Locale?
 			case Variant::STRING: entity->set(prop.key, prop.value); break;
 
-			case Variant::STRING_NAME: entity->set(prop.key, StringName(prop.value));
-			case Variant::NODE_PATH: entity->set(prop.key, NodePath(prop.value)); //TODO: More TrenchBroom focused node path conversion?
+			case Variant::STRING_NAME: entity->set(prop.key, StringName(prop.value)); break;
+			case Variant::NODE_PATH: entity->set(prop.key, NodePath(prop.value)); break; //TODO: More TrenchBroom focused node path conversion?
 
 			case Variant::VECTOR2: {
 				vec2 v = vec2_parse(prop.value);
@@ -340,6 +343,9 @@ bool Builder::build_entity_custom_native(int p_idx, LMEntity &p_ent, LMEntityGeo
 				vec3 v = vec3_parse(prop.value);
 				entity->set(prop.key, Color(v.x / 255.0f, v.y / 255.0f, v.z / 255.0f));
 				break;
+			}
+			default: {
+				ERR_FAIL_V_MSG(false, vformat("Couldn't parse entity property of type %s", Variant::get_type_name(var.get_type())));
 			}
 		}
 	}
@@ -622,8 +628,8 @@ MeshInstance3D* Builder::build_entity_mesh(int idx, LMEntity& ent, Node3D* paren
 			continue;
 		}
 
-		for (int i = 0; i < surfs.surface_count; i++) {
-			auto& surf = surfs.surfaces[i];
+		for (int j = 0; j < surfs.surface_count; j++) {
+			auto& surf = surfs.surfaces[j];
 			if (surf.vertex_count == 0) {
 				continue;
 			}
@@ -654,17 +660,20 @@ MeshInstance3D* Builder::build_entity_mesh(int idx, LMEntity& ent, Node3D* paren
 
 	// Create collisions if needed
 	switch (coltype) {
-	case ColliderType::Mesh:
-		add_collider_from_mesh(parent, collision_mesh, colshape, p_build_info);
-		break;
+		case ColliderType::Mesh:{
+			add_collider_from_mesh(parent, collision_mesh, colshape, p_build_info);
+		} break;
 
-	case ColliderType::Static:
-		StaticBody3D* static_body = memnew(StaticBody3D());
-		static_body->set_name(String(mesh_instance->get_name()) + "_col");
-		parent->add_child(static_body, true);
-		static_body->set_owner(m_loader->get_owner());
-		add_collider_from_mesh(static_body, collision_mesh, colshape, p_build_info);
-		break;
+		case ColliderType::Static: {		
+				StaticBody3D* static_body = memnew(StaticBody3D());
+				static_body->set_name(String(mesh_instance->get_name()) + "_col");
+				parent->add_child(static_body, true);
+				static_body->set_owner(m_loader->get_owner());
+				add_collider_from_mesh(static_body, collision_mesh, colshape, p_build_info);
+		} break;
+		case ColliderType::None: {
+
+		} break;
 	}
 
 	return mesh_instance;

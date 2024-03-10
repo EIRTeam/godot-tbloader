@@ -34,8 +34,8 @@ public:
 	int get_property_int(const char* key, int def = 0);
 	float get_property_float(const char* key, float def = 0.0f);
 	double get_property_double(const char* key, double def = 0.0);
-	vec2 get_property_vec2(const char* key, const vec2& def = { 0 });
-	vec3 get_property_vec3(const char* key, const vec3& def = { 0 });
+	vec2 get_property_vec2(const char* key, const vec2& def = vec2());
+	vec3 get_property_vec3(const char* key, const vec3& def = vec3());
 };
 
 #endif

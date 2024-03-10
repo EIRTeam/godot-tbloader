@@ -98,7 +98,7 @@ void LMMapData::map_data_reset() {
 void LMMapData::map_data_register_worldspawn_layer(const char *name, bool build_visuals) {
 	worldspawn_layers = (LMWorldspawnLayer *)realloc(worldspawn_layers, (worldspawn_layer_count + 1) * sizeof(LMWorldspawnLayer));
 	LMWorldspawnLayer *layer = &worldspawn_layers[worldspawn_layer_count];
-	*layer = { 0 };
+	*layer = LMWorldspawnLayer();
 	layer->texture_idx = map_data_find_texture(name);
 	layer->build_visuals = build_visuals;
 	worldspawn_layer_count++;
@@ -135,7 +135,7 @@ int LMMapData::map_data_register_texture(const char *name) {
 
 	textures = (LMTextureData *)realloc(textures, (texture_count + 1) * sizeof(LMTextureData));
 	LMTextureData *texture = &textures[texture_count];
-	*texture = { 0 };
+	*texture = LMTextureData();
 	texture->name = STRDUP(name);
 	texture_count++;
 	return texture_count - 1;

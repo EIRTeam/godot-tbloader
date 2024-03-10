@@ -14,7 +14,7 @@
 #define DEBUG false
 
 void LMMapParser::reset_current_face() {
-	current_face = { 0 };
+	current_face = face();
 }
 
 void LMMapParser::reset_current_brush() {
@@ -508,7 +508,7 @@ void LMMapParser::commit_brush() {
 	current_entity.brushes = (LMBrush *)realloc(current_entity.brushes, current_entity.brush_count * sizeof(LMBrush));
 
 	LMBrush *dest_brush = &current_entity.brushes[current_entity.brush_count - 1];
-	*dest_brush = { 0 };
+	*dest_brush = LMBrush();
 
 	dest_brush->face_count = current_brush.face_count;
 	dest_brush->faces = (LMFace *)realloc(dest_brush->faces, dest_brush->face_count * sizeof(LMFace));
@@ -524,14 +524,14 @@ void LMMapParser::commit_entity() {
 	map_data->entities = (LMEntity *)realloc(map_data->entities, map_data->entity_count * sizeof(LMEntity));
 
 	LMEntity *dest_entity = &map_data->entities[map_data->entity_count - 1];
-	*dest_entity = { 0 };
+	*dest_entity = LMEntity();
 	dest_entity->spawn_type = EST_ENTITY;
 
 	dest_entity->property_count = current_entity.property_count;
 	dest_entity->properties = (LMProperty *)realloc(dest_entity->properties, dest_entity->property_count * sizeof(LMProperty));
 	for (int p = 0; p < dest_entity->property_count; ++p) {
 		LMProperty *dest_property = &dest_entity->properties[p];
-		*dest_property = { 0 };
+		*dest_property = LMProperty();
 
 		dest_property->key = STRDUP(current_entity.properties[p].key);
 		dest_property->value = STRDUP(current_entity.properties[p].value);
@@ -541,7 +541,7 @@ void LMMapParser::commit_entity() {
 	dest_entity->brushes = (LMBrush *)realloc(dest_entity->brushes, dest_entity->brush_count * sizeof(LMBrush));
 	for (int b = 0; b < dest_entity->brush_count; ++b) {
 		LMBrush *dest_brush = &dest_entity->brushes[b];
-		*dest_brush = { 0 };
+		*dest_brush = LMBrush();
 
 		dest_brush->face_count = current_entity.brushes[b].face_count;
 		dest_brush->faces = (LMFace *)realloc(dest_brush->faces, dest_brush->face_count * sizeof(LMFace));
