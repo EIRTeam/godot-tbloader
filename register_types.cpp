@@ -1,7 +1,9 @@
 #include "register_types.h"
 
-#include "editor/editor_node.h"
+#ifdef TOOLS_ENABLED
 
+#include "editor/editor_node.h"
+#endif
 #include "src/tb_loader.h"
 #include "tbloader_editor_plugin.h"
 
